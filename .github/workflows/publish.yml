@@ -1,0 +1,46 @@
+name: TEHNOKOVSH 75 scheduled posts
+
+on:
+  # GitHub uses UTC. Every 10 minutes from 06:00 to 19:59 UTC;
+  # Python checks exact 09:00 / 14:00 / 19:00 Europe/Moscow slots.
+  schedule:
+    - cron: '*/10 6-19 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preview without publishing (true/false)'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tehnokovsh-publisher
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Validate content
+        run: python3 publish.py --validate
+      - name: Publish due posts
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+        run: |
+          if [ "$DRY_RUN" = 'true' ]; then
+            python3 publish.py --dry-run
+          else
+            python3 publish.py
+          fi
